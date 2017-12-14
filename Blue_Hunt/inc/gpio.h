@@ -2,13 +2,14 @@
  * gpio.h
  *
  *  Created on: Nov 25, 2017
- *      Author: Saritha
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #ifndef INC_GPIO_H_
 #define INC_GPIO_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define LED_ON_D9()  	controlLed(0,true)
 #define LED_ON_D10()	controlLed(1,true)

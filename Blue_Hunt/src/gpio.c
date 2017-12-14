@@ -44,6 +44,8 @@ void gpioSetup(void)
 	GPIO_DriveStrengthSet(GSM_PORT_UART, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(GSM_PORT_UART, GSM_TX, gpioModePushPull, 1);
 	GPIO_PinModeSet(GSM_PORT_UART, GSM_RX, gpioModeInput, 0);
+	GPIO_PinModeSet(GSM_PORT_UART, GSM_CTS, gpioModeInput, 0);
+	GPIO_PinModeSet(GSM_PORT_UART, GSM_RTS, gpioModePushPull, 1);	/*RTS should be set to low when the MCU is ready to receive data*/
 }
 
 void controlLed(uint8_t led, bool set)

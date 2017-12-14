@@ -2,7 +2,7 @@
  * gsm.h
  *
  *  Created on: Dec 6, 2017
- *      Author: Saritha
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #ifndef GSM_H_

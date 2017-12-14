@@ -2,7 +2,7 @@
  * btModule.c
  *
  *  Created on: Nov 25, 2017
- *      Author: Raj Kumar
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #include "main.h"

@@ -47,7 +47,7 @@ void letimerSetup()
 	flagInt = LETIMER0->IF;
 	LETIMER0->IFC = flagInt;	/*Clearing Interrupts*/
 
-	//LETIMER_IntEnable(LETIMER0, (LETIMER_IEN_UF | LETIMER_IEN_COMP1)); /*Enabling UF and COMP1 Interrupts*/
+	LETIMER_IntEnable(LETIMER0, (LETIMER_IEN_UF | LETIMER_IEN_COMP1)); /*Enabling UF and COMP1 Interrupts*/
 	//blockSleepMode();					//FIX ME With BLE APIs	/*Block the sleep mode to a particular mode*/
 	NVIC_EnableIRQ(LETIMER0_IRQn);	/*Enabling the NVIC*/
 }

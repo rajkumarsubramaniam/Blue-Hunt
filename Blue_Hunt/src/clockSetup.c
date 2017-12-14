@@ -17,7 +17,7 @@ void clockSetup(void)
 	 * LFXO is enabled
 	 * LFA, LFB, LFE are using LFXO
 	 */	
-	SystemHFXOClockSet(19000000);
+	//SystemHFXOClockSet(19000000);
 
 	/* USART */
 	CMU_OscillatorEnable(cmuOsc_HFRCO, true, true);            // Enable HFRC0

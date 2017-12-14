@@ -42,6 +42,7 @@
 #include "gpio.h"
 #include "timer.h"
 #include "sleep.h"
+#include "gsm.h"
 
 #ifdef FEATURE_SPI_FLASH
 #include "em_usart.h"
@@ -66,16 +67,16 @@ uint8_t bluetooth_stack_heap[DEFAULT_BLUETOOTH_HEAP(MAX_CONNECTIONS)];
 #ifdef FEATURE_PTI_SUPPORT
 //static const RADIO_PTIInit_t ptiInit = RADIO_PTI_INIT;
 static const RADIO_PTIInit_t ptiInit = {                                                                        \
-	    RADIO_PTI_MODE_UART,    /* Simplest output mode is UART mode */        \
+		RADIO_PTI_MODE_DISABLED,/* RADIO_PTI_MODE_UART,    Simplest output mode is UART mode */        \
 	    1600000,                /* Choose 1.6 MHz for best compatibility */    \
 	    2,                      /* WSTK uses location 3 for DOUT */            \
 	    gpioPortA,              /* Get the port for this loc */                \
 	    3,                      /* Get the pin, location should match above */ \
-	    6,                      /* WSTK uses location 6 for DCLK */            \
-	    gpioPortB,              /* Get the port for this loc */                \
-	    11,                     /* Get the pin, location should match above */ \
-	    6,                      /* WSTK uses location 6 for DFRAME */          \
-	    gpioPortB,              /* Get the port for this loc */                \
+	    22,                      /* WSTK uses location 6 for DCLK */            \
+	    gpioPortD,              /* Get the port for this loc */                \
+	    14,                     /* Get the pin, location should match above */ \
+	    19,                      /* WSTK uses location 6 for DFRAME */          \
+	    gpioPortD,              /* Get the port for this loc */                \
 	    13,                     /* Get the pin, location should match above */ \
 	  };
 #endif
@@ -112,6 +113,8 @@ uint8_t myPhone = 0;
 /*GPS Buffer Reading Flag*/
 bool readingNow = false;
 
+/*Temp first attempt*/
+bool firstTry = true;
 /**
  * @brief  Main function
  */
@@ -156,10 +159,12 @@ int main(void)
   /* USART Setup */
   USARTSetup();
 
+  GPIO_PinOutSet(GSM_PORT_POWER,GSM_MODULE_ON);	//Turn ON GSM PWR_ON pin
   /*Periodic reception of only GGA data*/
   //setGPSGGA_FilterCmd();
 
   //setHibernateMode();
+#if 0
   char transferData[20] = "Sari";
   char rec_data = NULL;
   for(int i=0;i<4;i++)
@@ -167,13 +172,12 @@ int main(void)
 	 USART0->TXDATA = transferData[i];
 	 //while(USART0->SYNCBUSY & USART_SYNCBUSY_TXDATA);// LEUART_Sync(LEUART0, LEUART_SYNCBUSY_TXDATA);
 	 while ((USART0->STATUS & USART_STATUS_TXC) == 0);
-	 while(USART0->STATUS & USART_STATUS_RXDATAV)
+	 while((USART0->STATUS & USART_STATUS_RXDATAV) == 0);
 	 rec_data = USART0->RXDATA;
   }
-
+#endif
   while(1)
   {
-
     /* Event pointer for handling events */
     struct gecko_cmd_packet* evt;
 
@@ -199,6 +203,22 @@ int main(void)
 			{
 				externalSignals &= ~EXT_LETIMER_ON;
 				LED_ON_D10();
+
+				if(firstTry)
+				{
+					char transferData[20] = "AT+UPSV?";
+					char rec_data = NULL;
+					for(int i=0;i<7;i++)
+					{
+					USART0->TXDATA = transferData[i];
+					//while(USART0->SYNCBUSY & USART_SYNCBUSY_TXDATA);// LEUART_Sync(LEUART0, LEUART_SYNCBUSY_TXDATA);
+					while ((USART0->STATUS & USART_STATUS_TXC) == 0);
+					//while(USART0->STATUS & USART_STATUS_RXDATAV)
+					//rec_data = USART0->RXDATA;
+					}
+					firstTry = false;
+				}
+
 				/*Turn ON GPS*/
 				gpsModuleEnable(true);
 			}
@@ -282,6 +302,6 @@ int main(void)
 		default:
 			break;
     }
-  }
+    }
   return 0;
 }

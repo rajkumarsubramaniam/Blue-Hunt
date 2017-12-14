@@ -2,7 +2,7 @@
  * clockSetup.h
  *
  *  Created on: Nov 22, 2017
- *      Author: Raj Kumar
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #ifndef INC_CLOCKSETUP_H_

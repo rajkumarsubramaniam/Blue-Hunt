@@ -2,7 +2,7 @@
  * btModule.h
  *
  *  Created on: Nov 25, 2017
- *      Author: Raj Kumar
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #ifndef INC_BTMODULE_H_

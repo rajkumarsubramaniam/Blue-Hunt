@@ -27,6 +27,7 @@
 /* Libraries containing default Gecko configuration values */
 #include "em_emu.h"
 #include "em_cmu.h"
+#include "em_letimer.h"
 #ifdef FEATURE_BOARD_DETECTED
 #include "bspconfig.h"
 #include "pti.h"
@@ -63,7 +64,20 @@
 uint8_t bluetooth_stack_heap[DEFAULT_BLUETOOTH_HEAP(MAX_CONNECTIONS)];
 
 #ifdef FEATURE_PTI_SUPPORT
-static const RADIO_PTIInit_t ptiInit = RADIO_PTI_INIT;
+//static const RADIO_PTIInit_t ptiInit = RADIO_PTI_INIT;
+static const RADIO_PTIInit_t ptiInit = {                                                                        \
+	    RADIO_PTI_MODE_UART,    /* Simplest output mode is UART mode */        \
+	    1600000,                /* Choose 1.6 MHz for best compatibility */    \
+	    2,                      /* WSTK uses location 3 for DOUT */            \
+	    gpioPortA,              /* Get the port for this loc */                \
+	    3,                      /* Get the pin, location should match above */ \
+	    6,                      /* WSTK uses location 6 for DCLK */            \
+	    gpioPortB,              /* Get the port for this loc */                \
+	    11,                     /* Get the pin, location should match above */ \
+	    6,                      /* WSTK uses location 6 for DFRAME */          \
+	    gpioPortB,              /* Get the port for this loc */                \
+	    13,                     /* Get the pin, location should match above */ \
+	  };
 #endif
 
 /* Gecko configuration parameters (see gecko_configuration.h) */
@@ -95,6 +109,9 @@ bool notificationON = false;
 /*Storing the Connection Handle*/
 uint8_t myPhone = 0;
 
+/*GPS Buffer Reading Flag*/
+bool readingNow = false;
+
 /**
  * @brief  Main function
  */
@@ -121,18 +138,26 @@ int main(void)
   /*GPIO Setup*/
   gpioSetup();
 
+  LED_ON_D9();
+
   /*LETIMER Setup*/
-  //letimerSetup();
-
-  /*LEUART Setup*/
-  //LEUARTSetup();
-
-  /* USART Setup */
-  USARTSetup();
+  letimerSetup();
 
   SLEEP_SleepBlockBegin(sleepEM4);	/*Helps to block the system going to EM4*/
 
   SLEEP_SleepBlockBegin(sleepEM2);	/*For testing*/
+
+  /*Start LETIMER*/
+  LETIMER_Enable(LETIMER0,true);
+
+  /*LEUART Setup*/
+  LEUARTSetup();
+
+  /* USART Setup */
+  USARTSetup();
+
+  /*Periodic reception of only GGA data*/
+  //setGPSGGA_FilterCmd();
 
   //setHibernateMode();
   char transferData[20] = "Sari";
@@ -148,6 +173,7 @@ int main(void)
 
   while(1)
   {
+
     /* Event pointer for handling events */
     struct gecko_cmd_packet* evt;
 
@@ -172,10 +198,22 @@ int main(void)
 			if((EXT_LETIMER_ON & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_LETIMER_ON;
+				LED_ON_D10();
+				/*Turn ON GPS*/
+				gpsModuleEnable(true);
 			}
 			if((EXT_LETIMER_OFF & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_LETIMER_OFF;
+
+				LED_OFF_D10();
+				/*Turn OFF GPS*/
+				gpsModuleEnable(false);
+				if(readingNow == false)
+				{
+					readingNow = true;
+					readGPSBuffer();
+				}
 			}
 			break;
 
@@ -183,6 +221,8 @@ int main(void)
 		* Here the system is set to start advertising immediately after boot procedure. */
 		case gecko_evt_system_boot_id:
 			configureSecurity();
+			/*Set Tx power to )dBm at startup*/
+			gecko_cmd_system_set_tx_power(0);
 			configureAdvertising();
 			break;
 
@@ -206,6 +246,8 @@ int main(void)
 
 		/*Event generated when a Master device tries to connect to the Blue Gecko*/
 		case gecko_evt_le_connection_closed_id:
+			/*Set Tx power to )dBm to advertise*/
+			gecko_cmd_system_set_tx_power(0);
 			/* Check if need to boot to dfu mode */
 			if (boot_to_dfu)
 			{
@@ -243,6 +285,3 @@ int main(void)
   }
   return 0;
 }
-
-/** @} (end addtogroup app) */
-/** @} (end addtogroup Application) */

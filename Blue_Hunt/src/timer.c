@@ -2,10 +2,11 @@
  * timer.c
  *
  *  Created on: Dec 4, 2017
- *      Author: Raj Kumar
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #include "em_letimer.h"
+#include "native_gecko.h"
 #include "em_core.h"
 #include "main.h"
 #include "timer.h"
@@ -16,7 +17,6 @@ void letimerSetup()
 {
 	int COMP0_SET;
 	int COMP1_SET;
-	int LETIMER_PS;
 	int flagInt;
 
 	/* Set configurations for LETIMER 0 */
@@ -67,5 +67,5 @@ void LETIMER0_IRQHandler(void)
 		externalSignals |= EXT_LETIMER_OFF;
 	}
 	CORE_ATOMIC_IRQ_ENABLE();	/*Enable Interrupts*/
-	//gecko_external_signal(externalSignals);
+	gecko_external_signal(externalSignals);
 }

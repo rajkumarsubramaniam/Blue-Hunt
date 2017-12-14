@@ -1,0 +1,21 @@
+
+Blue_Hunt/.cproject
+Blue_Hunt/.project
+Blue_Hunt/GNU ARM v4.9.3 - Default/bgapi/subdir.mk
+Blue_Hunt/GNU ARM v4.9.3 - Default/Blue_Hunt.bin
+Blue_Hunt/GNU ARM v4.9.3 - Default/Blue_Hunt.hex
+*.hex
+Blue_Hunt/GNU ARM v4.9.3 - Default/Blue_Hunt.map
+*.s37
+*.mk
+*.mk
+*.mk
+*.bin
+*.hex
+*.map
+*.s37
+*.mk
+*.mk
+Blue_Hunt/GNU ARM v4.9.3 - Default/makefile
+*.mk
+*.mk

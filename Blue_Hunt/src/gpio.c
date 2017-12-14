@@ -2,7 +2,7 @@
  * gpio.c
  *
  *  Created on: Nov 25, 2017
- *      Author: Saritha
+ *      Author: Raj Kumar & Saritha Senguttuvan
  */
 
 #include <stdbool.h>
@@ -14,6 +14,7 @@ void gpioSetup(void)
 	GPIO_DriveStrengthSet(GPS_PORT, gpioDriveStrengthWeakAlternateWeak); /* Set the GPIO drive strength for Port A*/
 	GPIO_DriveStrengthSet(LED_PORT, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_DriveStrengthSet(GSM_PORT_POWER, gpioDriveStrengthWeakAlternateWeak);
+	
 	/*GSM UART Port and LED are Port C, but configured again for future Compatibility*/
 	GPIO_DriveStrengthSet(GSM_PORT_UART, gpioDriveStrengthWeakAlternateWeak);
 
@@ -39,11 +40,10 @@ void gpioSetup(void)
 	GPIO_PinModeSet(GSM_PORT_POWER,GSM_CTS,gpioModeInput,0);	/*GSM*/
 	GPIO_PinModeSet(GSM_PORT_POWER,GSM_RTS,gpioModePushPull,0);	/*GSM*/
 
+	/*USART Pin Modes*/
 	GPIO_DriveStrengthSet(GSM_PORT_UART, gpioDriveStrengthWeakAlternateWeak);
 	GPIO_PinModeSet(GSM_PORT_UART, GSM_TX, gpioModePushPull, 1);
 	GPIO_PinModeSet(GSM_PORT_UART, GSM_RX, gpioModeInput, 0);
-
-
 }
 
 void controlLed(uint8_t led, bool set)

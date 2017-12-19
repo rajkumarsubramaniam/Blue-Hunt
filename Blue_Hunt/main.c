@@ -187,6 +187,8 @@ int main(void)
   /*Turn ON GPS*/
   gpsModuleEnable(true);
 
+
+  for(int i = 0;i<10000;i++);
   /*Turn Debug OFF in GPS*/
   setDBGMode();
 
@@ -194,10 +196,7 @@ int main(void)
   enableOnlyGGA();
 
   /*Turn OFF GPS*/
- // gpsModuleEnable(false);
-
-  /*Now enable the GPS Rx reception*/
-  LEUART_Enable(LEUART0, leuartEnable);
+  //gpsModuleEnable(false);
 
   while(1)
   {
@@ -217,12 +216,14 @@ int main(void)
 				externalSignals &= ~EXT_GPS_RXDATA_READY;
 				/*Turn Off GPS*/
 				gpsModuleEnable(false);
+				gpsClearBuffer();
 			}
 			/*GSM data received should be processed*/
 			if((EXT_GSM_RXDATA_READY & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_GSM_RXDATA_READY;
 			}
+
 			/*Notification to save the parked location*/
 			if((EXT_STATE_DRIVE_TO_PARKED & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
@@ -230,32 +231,18 @@ int main(void)
 				parkedLatitude = latitude;
 				parkedLongitude = longitude;
 			}
+
 			/*LETIMER Events occurred*/
 			if((EXT_LETIMER_ON & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_LETIMER_ON;
 				LED_ON_D10();
-//#define GPS_TESTING
-#ifdef GPS_TESTING
-				static int count = 0;
-				//if(firstTry)
+
+				if((stateChange == BH_STATE_PARKED) &&(bhCurrentState == BH_STATE_PARKED))
 				{
-					if(count == 1)//sendDataToGSM((uint8_t*)GSM_TEST_VERSION_INFO, strlen(GSM_TEST_VERSION_INFO));
-					sendDataToGSM((uint8_t*)GSM_NTWK_REG_INFO, strlen(GSM_NTWK_REG_INFO));
-					if(count == 2)/*Set the preferred message as SMS*/
-					sendDataToGSM((uint8_t*)GSM_TXT_MSG_MODE_CMD, strlen(GSM_TXT_MSG_MODE_CMD));
-					if(count == 3)/*Check the memory for SMS Storage*/
-					sendDataToGSM((uint8_t*)GSM_CHECK_MEMORIES_SMS, strlen(GSM_CHECK_MEMORIES_SMS));
-					if(count == 4)/*Set SIM card as storage*/
-					sendDataToGSM((uint8_t*)GSM_SMS_STORAGE_SIM, strlen(GSM_SMS_STORAGE_SIM));
-					if(count == 5)/*Directly send without storing SMS*/
-					sendDataToGSM((uint8_t*)GSM_SEND_SMS, strlen(GSM_SEND_SMS));
-					if(count == 6)
-					sendDataToGSM((uint8_t*)GSM_MSG_PAYLOAD, strlen(GSM_MSG_PAYLOAD));
-					count++;
-					firstTry = false;
+					sendGSM_SMS_Alert();
 				}
-#endif
+
 				/*Turn ON GPS*/
 				gpsModuleEnable(true);
 
@@ -302,6 +289,8 @@ int main(void)
 			configureConnParam();
 			bhCurrentState = BH_STATE_DRIVING;	/*When the BLE is connected the state is Driving*/
 			stateChange = BH_STATE_DRIVING;
+			/*Now enable the GPS Rx reception*/
+			LEUART_Enable(LEUART0, leuartEnable);
 			myPhone = evt->data.evt_le_connection_opened.connection;
 			break;
 

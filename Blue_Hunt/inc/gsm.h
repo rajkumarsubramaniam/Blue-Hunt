@@ -20,12 +20,13 @@
 #define GSM_CHECK_MEMORIES_SMS	"AT+CPMS?\r"
 #define GSM_SMS_STORAGE_SIM		"AT+CPMS=\"SM\"\r"
 #define GSM_SEND_SMS			"AT+CMGS=\"+17204519932\"\r"
-#define GSM_MSG_PAYLOAD			"This is Blue Hunt. Somebody is accessing your car. Please check.\x1A"
+#define GSM_MSG_PAYLOAD			"This is Blue Hunt. Somebody is accessing your car. Please check."
 
 /*GSM Pin Controls*/
 #define MCU_READY_TO_RX_GSMDATA()		GPIO_PinOutClear(GSM_PORT_UART, GSM_RTS) 	/*Pulling RTS low*/
 #define MCU_NOTREADY_TO_RX_GSMDATA()	GPIO_PinOutSet(GSM_PORT_UART, GSM_RTS) 		/*Pulling RTS low*/
 
+#define GSM_SEND_WAIT_TIME	(700000)
 /*Structure for storing GSM Data*/
 typedef struct
 {
@@ -55,5 +56,12 @@ void sendDataToGSM(uint8_t *data, size_t len);
  * return	: None
  */
 void gsmPWR_ONInput(bool enable);
+
+/* function : sendGSM_SMS_Alert()
+ * brief	: This function is to send message to phone
+ * param	: void
+ * return	: None
+ */
+void sendGSM_SMS_Alert();
 
 #endif /* GSM_H_ */

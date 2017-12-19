@@ -215,7 +215,7 @@ EStatus setDBGMode(void)
 
 EStatus enableOnlyGGA(void)
 {
-	setGPSGGA_FilterCmd(GPS_QUERY_GGA_MSG);		/*Query GGA data*/
+	setGPSGGA_FilterCmd(GPS_SET_PERIODIC_GGA);//GPS_QUERY_GGA_MSG);		/*Query GGA data*/
 	setGPSGGA_FilterCmd(GPS_DISABLE_GLL);		/*Disable GLL Data*/
 	setGPSGGA_FilterCmd(GPS_DISABLE_GSA);		/*Disable GSA Data*/
 	setGPSGGA_FilterCmd(GPS_DISABLE_GSV);		/*Disable GSV Data*/
@@ -278,4 +278,12 @@ void readGPSBuffer(void)
 	}
 	readingNow = false;	/*After reading all the data exit*/
 	return;
+}
+
+void gpsClearBuffer(void)
+{
+	memset((void*)gpsData->buffer,0,GPS_CIRBUFF_LENGTH);
+	gpsData->rdPtr = 0;
+	gpsData->wrPtr = 0;
+	gpsData->count = 0;
 }

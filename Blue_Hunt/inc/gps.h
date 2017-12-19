@@ -29,6 +29,7 @@
 
 /*Commands to flter the GGA data*/
 #define GPS_QUERY_GGA_MSG		("$PSRF103,00,01,00,01*")
+#define GPS_SET_PERIODIC_GGA	("$PSRF103,00,00,01,01*")
 #define GPS_DISABLE_GLL			("$PSRF103,01,00,00,01*")
 #define GPS_DISABLE_GSA			("$PSRF103,02,00,00,01*")
 #define GPS_DISABLE_GSV			("$PSRF103,03,00,00,01*")
@@ -114,5 +115,7 @@ EStatus setGPSGGA_FilterCmd(uint8_t* data);
  * return	: E_SUCCESS on success and Error values in case of failure.
  */
 void readGPSBuffer(void);
+
+void gpsClearBuffer(void);
 
 #endif /* INC_GPS_H_ */

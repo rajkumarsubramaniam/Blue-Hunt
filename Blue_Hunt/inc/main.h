@@ -18,6 +18,9 @@
 #define EXT_LETIMER_ON			(0x0100)
 #define EXT_LETIMER_OFF			(0x0200)
 
+/*Parked Location*/
+#define EXT_STATE_DRIVE_TO_PARKED	(0x1000)
+
 /*Error Status enum*/
 typedef enum
 {
@@ -30,5 +33,14 @@ typedef enum
 	E_INVALID_SENTENCE,
 	E_INVALID_DATA
 }EStatus;
+
+/*Enum for Blue Hunt States*/
+typedef enum
+{
+	BH_STATE_RESET = 0,	/*State when the BLE haven't made a connection for the first time*/
+	BH_STATE_PARKED,	/*State when the car is parked i.e., when BLE not connected*/
+	BH_STATE_DRIVING,	/*State when driving i.e., when BLE is connected*/
+	BH_STATE_HUNT		/*State when the car is stolen i.e., GSM will be turned ON*/
+}BHStates;
 
 #endif /* INC_MAIN_H_ */

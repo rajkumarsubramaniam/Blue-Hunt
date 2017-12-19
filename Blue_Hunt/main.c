@@ -113,8 +113,23 @@ uint8_t myPhone = 0;
 /*GPS Buffer Reading Flag*/
 bool readingNow = false;
 
-/*Temp first attempt*/
+/*Temporary first attempt*/
 bool firstTry = true;
+
+/*Blue Hunt State Variable*/
+BHStates bhCurrentState = BH_STATE_RESET;
+
+/*Flag to set the parked Location*/
+BHStates stateChange = BH_STATE_RESET;
+
+/*Parked location*/
+float parkedLatitude = 0;
+float parkedLongitude = 0;
+
+/*Current location*/
+extern float latitude;
+extern float longitude;
+
 /**
  * @brief  Main function
  */
@@ -141,17 +156,11 @@ int main(void)
   /*GPIO Setup*/
   gpioSetup();
 
+  /*Notify System Turned ON*/
   LED_ON_D9();
 
   /*LETIMER Setup*/
   letimerSetup();
-
-  SLEEP_SleepBlockBegin(sleepEM4);	/*Helps to block the system going to EM4*/
-
-  SLEEP_SleepBlockBegin(sleepEM2);	/*For testing*/
-
-  /*Start LETIMER*/
-  LETIMER_Enable(LETIMER0,true);
 
   /*LEUART Setup*/
   LEUARTSetup();
@@ -159,23 +168,37 @@ int main(void)
   /* USART Setup */
   USARTSetup();
 
-  GPIO_PinOutSet(GSM_PORT_POWER,GSM_MODULE_ON);	//Turn ON GSM PWR_ON pin
-  /*Periodic reception of only GGA data*/
-  //setGPSGGA_FilterCmd();
+  /*Helps to block the system going to EM4*/
+ // SLEEP_SleepBlockBegin(sleepEM4);
 
-  //setHibernateMode();
+  /*For testing*/
+  //SLEEP_SleepBlockBegin(sleepEM3);
+
 #if 0
-  char transferData[20] = "Sari";
-  char rec_data = NULL;
-  for(int i=0;i<4;i++)
-  {
-	 USART0->TXDATA = transferData[i];
-	 //while(USART0->SYNCBUSY & USART_SYNCBUSY_TXDATA);// LEUART_Sync(LEUART0, LEUART_SYNCBUSY_TXDATA);
-	 while ((USART0->STATUS & USART_STATUS_TXC) == 0);
-	 while((USART0->STATUS & USART_STATUS_RXDATAV) == 0);
-	 rec_data = USART0->RXDATA;
-  }
+  /*Enabling GPS Buck-Converter - Starts the 1.8V Power Rail*/
+  gpsBuckEnable(true);
 #endif
+  /*Turn ON GSM PWR_ON pin*/
+  gsmPWR_ONInput(false);
+
+  /*As the MCU will now be ready to Rx data, RTS should be pulled LOW*/
+  MCU_READY_TO_RX_GSMDATA();
+
+  /*Turn ON GPS*/
+  gpsModuleEnable(true);
+
+  /*Turn Debug OFF in GPS*/
+  setDBGMode();
+
+  /*Set Filter for only GGA*/
+  enableOnlyGGA();
+
+  /*Turn OFF GPS*/
+ // gpsModuleEnable(false);
+
+  /*Now enable the GPS Rx reception*/
+  LEUART_Enable(LEUART0, leuartEnable);
+
   while(1)
   {
     /* Event pointer for handling events */
@@ -192,43 +215,64 @@ int main(void)
 			if((EXT_GPS_RXDATA_READY & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_GPS_RXDATA_READY;
+				/*Turn Off GPS*/
+				gpsModuleEnable(false);
 			}
 			/*GSM data received should be processed*/
-			if((EXT_GSM_RXDATA_READY& evt->data.evt_system_external_signal.extsignals) != 0)
+			if((EXT_GSM_RXDATA_READY & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_GSM_RXDATA_READY;
 			}
-			/*LETIMER Events occured*/
+			/*Notification to save the parked location*/
+			if((EXT_STATE_DRIVE_TO_PARKED & evt->data.evt_system_external_signal.extsignals) != 0)
+			{
+				externalSignals &= ~EXT_STATE_DRIVE_TO_PARKED;
+				parkedLatitude = latitude;
+				parkedLongitude = longitude;
+			}
+			/*LETIMER Events occurred*/
 			if((EXT_LETIMER_ON & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_LETIMER_ON;
 				LED_ON_D10();
-
-				if(firstTry)
+//#define GPS_TESTING
+#ifdef GPS_TESTING
+				static int count = 0;
+				//if(firstTry)
 				{
-					char transferData[20] = "AT+UPSV?";
-					char rec_data = NULL;
-					for(int i=0;i<7;i++)
-					{
-					USART0->TXDATA = transferData[i];
-					//while(USART0->SYNCBUSY & USART_SYNCBUSY_TXDATA);// LEUART_Sync(LEUART0, LEUART_SYNCBUSY_TXDATA);
-					while ((USART0->STATUS & USART_STATUS_TXC) == 0);
-					//while(USART0->STATUS & USART_STATUS_RXDATAV)
-					//rec_data = USART0->RXDATA;
-					}
+					if(count == 1)//sendDataToGSM((uint8_t*)GSM_TEST_VERSION_INFO, strlen(GSM_TEST_VERSION_INFO));
+					sendDataToGSM((uint8_t*)GSM_NTWK_REG_INFO, strlen(GSM_NTWK_REG_INFO));
+					if(count == 2)/*Set the preferred message as SMS*/
+					sendDataToGSM((uint8_t*)GSM_TXT_MSG_MODE_CMD, strlen(GSM_TXT_MSG_MODE_CMD));
+					if(count == 3)/*Check the memory for SMS Storage*/
+					sendDataToGSM((uint8_t*)GSM_CHECK_MEMORIES_SMS, strlen(GSM_CHECK_MEMORIES_SMS));
+					if(count == 4)/*Set SIM card as storage*/
+					sendDataToGSM((uint8_t*)GSM_SMS_STORAGE_SIM, strlen(GSM_SMS_STORAGE_SIM));
+					if(count == 5)/*Directly send without storing SMS*/
+					sendDataToGSM((uint8_t*)GSM_SEND_SMS, strlen(GSM_SEND_SMS));
+					if(count == 6)
+					sendDataToGSM((uint8_t*)GSM_MSG_PAYLOAD, strlen(GSM_MSG_PAYLOAD));
+					count++;
 					firstTry = false;
 				}
-
+#endif
 				/*Turn ON GPS*/
 				gpsModuleEnable(true);
+
+				/*Periodic reception of only GGA data*/
+				setGPSGGA_FilterCmd(GPS_QUERY_GGA_MSG);
 			}
 			if((EXT_LETIMER_OFF & evt->data.evt_system_external_signal.extsignals) != 0)
 			{
 				externalSignals &= ~EXT_LETIMER_OFF;
 
 				LED_OFF_D10();
-				/*Turn OFF GPS*/
-				gpsModuleEnable(false);
+
+				if(bhCurrentState == BH_STATE_DRIVING)
+				{
+					/*Disable LETIMER - as GPS and GSM will be diable after this point*/
+					LETIMER_Enable(LETIMER0,false);
+				}
 				if(readingNow == false)
 				{
 					readingNow = true;
@@ -242,7 +286,7 @@ int main(void)
 		case gecko_evt_system_boot_id:
 			configureSecurity();
 			/*Set Tx power to )dBm at startup*/
-			gecko_cmd_system_set_tx_power(0);
+			gecko_cmd_system_set_tx_power(-200);//gecko_cmd_system_set_tx_power(0);
 			configureAdvertising();
 			break;
 
@@ -256,6 +300,8 @@ int main(void)
 		case gecko_evt_le_connection_opened_id:
 			notificationON = true;
 			configureConnParam();
+			bhCurrentState = BH_STATE_DRIVING;	/*When the BLE is connected the state is Driving*/
+			stateChange = BH_STATE_DRIVING;
 			myPhone = evt->data.evt_le_connection_opened.connection;
 			break;
 
@@ -267,7 +313,7 @@ int main(void)
 		/*Event generated when a Master device tries to connect to the Blue Gecko*/
 		case gecko_evt_le_connection_closed_id:
 			/*Set Tx power to )dBm to advertise*/
-			gecko_cmd_system_set_tx_power(0);
+			gecko_cmd_system_set_tx_power(-200);//gecko_cmd_system_set_tx_power(0);
 			/* Check if need to boot to dfu mode */
 			if (boot_to_dfu)
 			{
@@ -279,6 +325,9 @@ int main(void)
 				/* Restart advertising after client has disconnected */
 				gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable);
 			}
+			bhCurrentState = BH_STATE_PARKED;
+			/*Enable LETIMER to track the GPS location*/
+			LETIMER_Enable(LETIMER0,true);
 			break;
 
 		/* Events related to OTA upgrading
@@ -302,6 +351,6 @@ int main(void)
 		default:
 			break;
     }
-    }
+  }
   return 0;
 }

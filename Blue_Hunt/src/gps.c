@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "em_core.h"
 #include "em_leuart.h"
 #include "em_gpio.h"
@@ -17,10 +18,15 @@
 int8_t* gpsSentence;	/*Variable to store received GPS data*/
 GPS_Buffer *gpsData;
 size_t parser = 0;		/*Array index for GPS data variable*/
+
+/*Global Variables for Location data*/
 float latitude = 0;
 float longitude = 0;
+
 extern uint32_t externalSignals;
-extern bool readingNow;	/*Flag to indicate whether the buffer is being read*/
+extern bool readingNow;				/*Flag to indicate whether the buffer is being read*/
+extern BHStates stateChange;
+extern BHStates bhCurrentState;
 
 void LEUARTSetup(void)
 {
@@ -39,9 +45,10 @@ void LEUARTSetup(void)
 	/*ROUTE LOCATION - TX at 1 and RX at 0*/
 	LEUART0->ROUTELOC0 = LEUART_ROUTELOC0_RXLOC_LOC0 | LEUART_ROUTELOC0_TXLOC_LOC2;
 	LEUART0->ROUTEPEN  = LEUART_ROUTEPEN_RXPEN | LEUART_ROUTEPEN_TXPEN;
-	//LEUART0->CTRL |= LEUART_CTRL_LOOPBK;
-
-	LEUART0->IEN = LEUART_IEN_RXDATAV;//| LEUART_IEN_TXC;//| LEUART_IF_TXBL;
+#ifdef TESTING
+	LEUART0->CTRL |= LEUART_CTRL_LOOPBK;
+#endif
+	LEUART0->IEN = LEUART_IEN_RXDATAV;
 
 	/*Block sleep mode should be set to EM2*/
 
@@ -50,12 +57,15 @@ void LEUARTSetup(void)
 	LEUART0->CMD |= LEUART_CMD_CLEARRX;
 	LEUART0->IFC = LEUART0->IF;
 	NVIC_EnableIRQ(LEUART0_IRQn);
-	LEUART_Enable(LEUART0, leuartEnable);
+	/*Initially Only Tx is enabled to avoid unnecessary GPS data*/
+	LEUART_Enable(LEUART0, leuartEnableTx);
 
 	gpsData = (GPS_Buffer *)malloc(sizeof(GPS_Buffer));
-	gpsData->buffer = (uint8_t*)malloc(CIRCULAR_BUFFER_LENGTH);
+	gpsData->buffer = (uint8_t*)malloc(GPS_CIRBUFF_LENGTH);
+	memset((void*)gpsData->buffer,0,GPS_CIRBUFF_LENGTH);
 	gpsData->rdPtr = 0;
 	gpsData->wrPtr = 0;
+	gpsData->count = 0;
 }
 
 void LEUART0_IRQHandler()
@@ -63,41 +73,54 @@ void LEUART0_IRQHandler()
 	int32_t flags;
 	flags = LEUART0->IF;
 	LEUART0->IFC = LEUART_IF_RXDATAV;
-	CORE_ATOMIC_IRQ_DISABLE();
+	CORE_AtomicDisableIrq();
  	if((flags & LEUART_IF_RXDATAV) != 0)
 	{
  		gpsData->buffer[gpsData->wrPtr] = LEUART0->RXDATA;				/*Storing Incoming byte into the GPS data*/
- 		gpsData->wrPtr = (gpsData->wrPtr+1)%CIRCULAR_BUFFER_LENGTH;
+ 		gpsData->wrPtr = (gpsData->wrPtr+1)%GPS_CIRBUFF_LENGTH;
+ 		gpsData->count++;
 	}
- 	CORE_ATOMIC_IRQ_ENABLE();
-	//gecko_external_signal(externalSignals);
+ 	CORE_AtomicEnableIrq();
 }
 
-EStatus decodeLocation(uint8_t* gpsData, float* longitude, float* latitude)
+EStatus decodeLocation(uint8_t* loc_gpsData, float* loc_longitude, float* loc_latitude)
 {
 	char *msgField;
-	char *tempStr;
-	char *errCheck;
-	size_t i=0;
-	for(i=0, tempStr = (char*)gpsData;;i++,tempStr = NULL)
+	size_t parser = 0;
+
+	msgField = strtok((char*)loc_gpsData, GPS_SENTENCE_DELIMITER);
+	while(msgField != NULL)
 	{
-		msgField = strtok(tempStr, GPS_SENTENCE_DELIMITER);
-		switch (i)
+		if(parser == 0)
 		{
-			case 0:
-				if(strcmp(msgField, GPS_GGA_MSGID) != 0)	/*Comparing MSG ID for GPS Location data*/
-				{
-					return E_INVALID_SENTENCE;
-				}
-				break;
-			case 1:
-				*latitude = (float)strtod(msgField, &errCheck); /*Converting String to Float latitude*/
-				if(errCheck == msgField)
-				{
-					return E_INVALID_DATA;
-				}
-				break;
+			if(strcmp(msgField, GPS_GGA_MSGID) != 0)	/*Comparing MSG ID for GPS Location data*/
+			{
+				return E_INVALID_SENTENCE;
+			}
+			else
+			{
+				/*Turn OFF GPS*/
+				externalSignals |= EXT_GPS_RXDATA_READY;
+				gecko_external_signal(externalSignals);
+			}
 		}
+		if(parser == 2)
+		{
+			sscanf(msgField,"%f",loc_latitude);
+		}
+		if(parser == 4)
+		{
+			sscanf(msgField,"%f",loc_longitude);
+			if((stateChange == BH_STATE_DRIVING) && (bhCurrentState == BH_STATE_PARKED))	/*If prev state was driving and current state is parked*/
+			{
+				stateChange = BH_STATE_PARKED;
+				externalSignals |= EXT_STATE_DRIVE_TO_PARKED;
+				gecko_external_signal(externalSignals);
+			}
+			break;
+		}
+		msgField = strtok(NULL,GPS_SENTENCE_DELIMITER);
+		parser++;
 	}
 	return E_SUCCESS;
 }
@@ -111,18 +134,16 @@ void gpsModuleEnable(bool enable)
 		GPIO_PinOutClear(GPS_PORT, GPS_MODULE_ON);
 }
 
-#if 0
 /* Enable/Disable the Buck converter for the GPS */
 void gpsBuckEnable(bool enable)
 {
 	if(enable)			/* If enable */
-		//GPIO_PinOutSet(gpioPortA, 5);
+		GPIO_PinOutSet(GPS_PORT, GPS_PWR_EN);
 	else									/* If disable */
-		//GPIO_PinOutClear(gpioPortA, 5);
+		GPIO_PinOutClear(GPS_PORT, GPS_PWR_EN);
 }
-#endif
 
-EStatus testTransfer(int8_t * transferData, size_t len)
+EStatus testTransfer(uint8_t * transferData, size_t len)
 {
 	for(int i=0;i<len;i++)
 	{
@@ -137,7 +158,7 @@ EStatus testTransfer(int8_t * transferData, size_t len)
 	return E_SUCCESS;
 }
 
-EStatus leuartTransfer(int8_t * transferData, size_t len)
+EStatus leuartTransfer(uint8_t * transferData, size_t len)
 {
 	for(int i=0;i<len;i++)
 	{
@@ -186,8 +207,24 @@ EStatus setSiRFAware(void)
 	return E_SUCCESS;
 }
 
+EStatus setDBGMode(void)
+{
+	leuartTransfer(GPS_TURN_OFF_DBG, strlen((char*)GPS_TURN_OFF_DBG));
+	return E_SUCCESS;
+}
+
+EStatus enableOnlyGGA(void)
+{
+	setGPSGGA_FilterCmd(GPS_QUERY_GGA_MSG);		/*Query GGA data*/
+	setGPSGGA_FilterCmd(GPS_DISABLE_GLL);		/*Disable GLL Data*/
+	setGPSGGA_FilterCmd(GPS_DISABLE_GSA);		/*Disable GSA Data*/
+	setGPSGGA_FilterCmd(GPS_DISABLE_GSV);		/*Disable GSV Data*/
+	setGPSGGA_FilterCmd(GPS_DISABLE_RMC);		/*Disable RMC Data*/
+	return E_SUCCESS;
+}
+
 /* Function to enable only the GGA data from GPS */
-EStatus setGPSGGA_FilterCmd(void)
+EStatus setGPSGGA_FilterCmd(uint8_t* data)
 {
 	/*Message ID $PSRF103 PSRF103 protocol header
 	Msg 00 Message to control.
@@ -201,21 +238,29 @@ EStatus setGPSGGA_FilterCmd(void)
 					1=Enable Checksum
 	Checksum *25
 	<CR><LF> 	End of message termination*/
-	uint8_t cmd[] = "$PSRF103,00,00,05,00\r\n";	/*5 seconds set for GGA data periodicity*/
-	leuartTransfer(cmd, strlen(cmd)+2);			/* Add 2, to include \r\n*/
+	uint8_t checkSum = 0;
+	uint8_t cmd[80];
+	strcpy(cmd, data);
+	for(int i=1; cmd[i] != '*';i++)
+	{
+		checkSum = checkSum^cmd[i];
+	}
+	sprintf((char*)cmd,"%s%02x\r\n\0",(char*)cmd,checkSum);
+	leuartTransfer(cmd, strlen((char*)cmd));			/* Add 2, to include \r\n*/
 	return E_SUCCESS;
 }
 
 void readGPSBuffer(void)
 {
 	uint8_t character;
-	uint8_t readSentence[80];	/*80 bytes is the standard NMEA size*/
+	uint8_t readSentence[100];	/*80 bytes is the standard NMEA size*/
 	uint8_t count = 0;
-	while(gpsData->wrPtr != gpsData->rdPtr)
+	while(gpsData->count)
 	{
 		character = gpsData->buffer[gpsData->rdPtr];
 		gpsData->buffer[gpsData->rdPtr] = '\0';
-		gpsData->rdPtr = (gpsData->rdPtr+1)%CIRCULAR_BUFFER_LENGTH;
+		gpsData->rdPtr = (gpsData->rdPtr+1)%GPS_CIRBUFF_LENGTH;
+		gpsData->count--;
 		if(character == '$')
 		{
 			count = 0;
@@ -228,8 +273,8 @@ void readGPSBuffer(void)
 		else
 		{
 			readSentence[count] = character;
+			count++;
 		}
-		count++;
 	}
 	readingNow = false;	/*After reading all the data exit*/
 	return;

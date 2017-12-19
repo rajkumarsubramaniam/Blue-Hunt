@@ -26,7 +26,18 @@
 #define PUSH_TO_FIX 			("$PSRF117,16*0B\r\n")
 #define SET_SIRF_AWARE 			("$PSRF117,16*0B\r\n")
 #define GPS_OP_CTRL_CMD			("$PSRF103,00,01,00,01*25\r\n")
-#define CIRCULAR_BUFFER_LENGTH 	(800)
+
+/*Commands to flter the GGA data*/
+#define GPS_QUERY_GGA_MSG		("$PSRF103,00,01,00,01*")
+#define GPS_DISABLE_GLL			("$PSRF103,01,00,00,01*")
+#define GPS_DISABLE_GSA			("$PSRF103,02,00,00,01*")
+#define GPS_DISABLE_GSV			("$PSRF103,03,00,00,01*")
+#define GPS_DISABLE_RMC			("$PSRF103,04,00,00,01*")
+
+
+#define GPS_TURN_ON_DBG			("$PSRF105,1*3E\r\n")
+#define GPS_TURN_OFF_DBG		("$PSRF105,0*3F\r\n")
+#define GPS_CIRBUFF_LENGTH 		(800)
 
 /*Structure for storing GPS Data*/
 typedef struct
@@ -34,6 +45,7 @@ typedef struct
 	uint8_t* buffer;
 	size_t wrPtr;
 	size_t rdPtr;
+	size_t count;
 }GPS_Buffer;
 
 /* function : LEUARTSetup()
@@ -69,9 +81,9 @@ void gpsModuleEnable(bool enable);
  * param	: int8_t * - pointer to the data to be sent, size_t - Length of the data
  * return	: E_SUCCESS on success and Error values in case of failure.
  */
-EStatus leuartTransfer(int8_t * transferData, size_t len);
+EStatus leuartTransfer(uint8_t * transferData, size_t len);
 
-EStatus testTransfer(int8_t * transferData, size_t len);
+EStatus testTransfer(uint8_t * transferData, size_t len);
 
 EStatus setHibernateMode(void);
 
@@ -85,12 +97,16 @@ EStatus setPushToFix(void);
 
 EStatus setSiRFAware(void);
 
+EStatus setDBGMode(void);
+
+EStatus enableOnlyGGA(void);
+
 /* function : setGPSGGA_FilterCmd()
  * brief	: This function is used to provide GPS command to receive only GGA data
- * param	: void
+ * param	: uint8_t* - pointer to string
  * return	: E_SUCCESS on success and Error values in case of failure.
  */
-EStatus setGPSGGA_FilterCmd(void);
+EStatus setGPSGGA_FilterCmd(uint8_t* data);
 
 /* function : readGPSBuffer()
  * brief	: This function is used to provide GPS command to receive only GGA data

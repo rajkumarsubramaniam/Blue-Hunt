@@ -23,6 +23,16 @@ void clockSetup(void)
 	CMU_OscillatorEnable(cmuOsc_HFRCO, true, true);            // Enable HFRC0
   	CMU_ClockSelectSet(cmuClock_HFPER, cmuSelect_HFRCO);
 
+/*******************/
+#if 0	/* Set HFRCO Frequency*/
+	  CMU_HFRCOBandSet(cmuHFRCOFreq_19M0Hz);
+
+	  /* Set HFCLK clock on HFPER*/
+	  CMU_ClockSelectSet(cmuClock_HFPER, cmuSelect_HFCLK);
+	  CMU_ClockSelectSet(cmuClock_USART0 , cmuSelect_HFRCO );
+#endif
+/*********************/
+
 	/*GPS-LEUART is driven by LFB-LFXO - 32768 Hz*/
 	CMU_ClockEnable(cmuClock_HFPER, true);
 	CMU_ClockEnable(cmuClock_HFLE, true);

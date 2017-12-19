@@ -23,7 +23,7 @@ void gpioSetup(void)
      * Because of the design issue, MCU is being powered by the Buck Converter powering the GPS,
      * this will help in IOVDD being at 1.8V instead of the 3.3V to achieve UART communication without level-shifters
      ***********************************************************/
-    //GPIO_PinModeSet(GPS_PORT,GPS_PWR_EN,gpioModeWiredAndPullUp,1);	/* Set the mode - PortA, Pin 5 - Buck On/Off */
+    //GPIO_PinModeSet(GPS_PORT,GPS_PWR_EN,gpioModePushPull,0);	/* Set the mode - PortA, Pin 5 - Buck On/Off */
 	GPIO_PinModeSet(GPS_PORT,GPS_MODULE_ON,gpioModePushPull,0);	/* Set the mode - PortA, Pin 4 - GPS On/Off */
     GPIO_PinModeSet(GPS_PORT,BG_RX_GPS_TX,gpioModeInput,1);		/* Set the mode - PortA, Pin 1 - LEUART RX/GPS TX */
     GPIO_PinModeSet(GPS_PORT,BG_TX_GPS_RX,gpioModePushPull,1);	/* Set the mode - PortA, Pin 2 - LEUART TX/GPS RX */
